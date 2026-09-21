@@ -181,32 +181,48 @@ export function GameCanvas({
     };
   }, [triggerJump, setDuck, triggerSmash]);
 
-  // Touch Swipe Gesture Handlers
-  const handleTouchStart = (e) => {
-    if (e.touches && e.touches[0]) {
-      touchStartRef.current = {
-        x: e.touches[0].clientX,
-        y: e.touches[0].clientY,
-        time: Date.now()
-      };
-    }
-  };
+  // Touch Swipe Gesture Handler (Dominant Vertical Swipe Filter)
+  useEffect(() => {
+    const gameArea = document.getElementById('game-canvas-container');
+    if (!gameArea) return;
 
-  const handleTouchEnd = (e) => {
-    if (e.changedTouches && e.changedTouches[0]) {
-      const dy = e.changedTouches[0].clientY - touchStartRef.current.y;
-      const dt = Date.now() - touchStartRef.current.time;
+    let touchStartY = 0;
+    let touchStartX = 0;
 
-      if (dt < 400 && Math.abs(dy) > 25) {
-        if (dy < -25) {
-          triggerJump();
-        } else if (dy > 25) {
-          setDuck(true);
-          setTimeout(() => setDuck(false), 600);
+    const handleTouchStart = (e) => {
+      if (e.touches && e.touches[0]) {
+        touchStartY = e.touches[0].clientY;
+        touchStartX = e.touches[0].clientX;
+      }
+    };
+
+    const handleTouchEnd = (e) => {
+      if (e.changedTouches && e.changedTouches[0]) {
+        const touchEndY = e.changedTouches[0].clientY;
+        const touchEndX = e.changedTouches[0].clientX;
+        const deltaY = touchEndY - touchStartY;
+        const deltaX = touchEndX - touchStartX;
+
+        // Only trigger if vertical swipe is dominant over horizontal (avoids accidental side-swipes)
+        if (Math.abs(deltaY) > Math.abs(deltaX) && Math.abs(deltaY) > 40) {
+          if (deltaY < 0) {
+            triggerJump(); // Swipe Up -> Jump
+          } else {
+            setDuck(true); // Swipe Down -> Duck
+            setTimeout(() => setDuck(false), 600);
+          }
         }
       }
-    }
-  };
+    };
+
+    gameArea.addEventListener('touchstart', handleTouchStart, { passive: true });
+    gameArea.addEventListener('touchend', handleTouchEnd, { passive: true });
+
+    return () => {
+      gameArea.removeEventListener('touchstart', handleTouchStart);
+      gameArea.removeEventListener('touchend', handleTouchEnd);
+    };
+  }, [triggerJump, setDuck]);
 
   // Main Delta-Time Canvas Game Loop
   useEffect(() => {
@@ -222,7 +238,9 @@ export function GameCanvas({
     const groundY = isMobile ? 904 : 404;
 
     const p = gameStateRef.current.player;
-    p.groundY = isMobile ? 848 : 350;
+    p.width = isMobile ? 59 : 56; // Mobile +5% size adjustment (56 * 1.05 = ~59)
+    p.height = isMobile ? 59 : 56;
+    p.groundY = isMobile ? groundY - p.height : 350; // Ground aligned (904 - 59 = 845)
     p.x = isMobile ? 80 : 100;
     if (p.isGrounded) p.y = p.groundY;
 
@@ -852,11 +870,11 @@ export function GameCanvas({
 
         const isOverhead = Math.random() < 0.35;
         
-        const obsHeight = isMobile ? 52 : 36;
-        const obsWidth = isMobile ? 110 : 75;
+        const obsHeight = isMobile ? 49 : 36; // Mobile -5% size adjustment (52 * 0.95 = 49.4 -> 49)
+        const obsWidth = isMobile ? 105 : 75; // Mobile -5% size adjustment (110 * 0.95 = 104.5 -> 105)
         const obsY = isOverhead 
           ? (isMobile ? groundY - 145 : groundY - 102) 
-          : (isMobile ? groundY - 52 : groundY - 36);
+          : (isMobile ? groundY - obsHeight : groundY - 36);
 
         state.obstacles.push({
           x: canvasWidth + 40,
@@ -1163,13 +1181,12 @@ export function GameCanvas({
 
       {/* 9:16 MOBILE CANVAS CONTAINER & DESKTOP WIDESCREEN CONTAINER */}
       <div 
+        id="game-canvas-container"
         className={`relative w-full shadow-2xl border-x border-b border-saffron-500/20 overflow-hidden rounded-b-2xl bg-slate-900 touch-none flex flex-col items-center justify-center ${
           isMobile 
             ? 'aspect-[9/16] max-h-[calc(100vh-140px)] w-auto mx-auto' 
             : ''
         }`}
-        onTouchStart={handleTouchStart}
-        onTouchEnd={handleTouchEnd}
       >
         <canvas
           ref={canvasRef}
@@ -1199,7 +1216,7 @@ export function GameCanvas({
       <div className="w-full grid grid-cols-3 gap-2 sm:gap-3 mt-3">
         <button
           onClick={triggerJump}
-          className="flex items-center justify-center gap-1.5 py-3.5 bg-saffron-600 text-white font-extrabold text-sm rounded-xl shadow-lg active:bg-saffron-700 min-h-[48px] touch-manipulation"
+          className="flex items-center justify-center gap-1.5 py-3.5 bg-saffron-600 text-white font-extrabold text-sm rounded-xl shadow-lg active:bg-saffron-700 active:scale-95 transition-all min-h-[50px] touch-manipulation"
         >
           <ArrowUp className="w-5 h-5" /> JUMP
         </button>
@@ -1209,7 +1226,7 @@ export function GameCanvas({
           onMouseUp={() => setDuck(false)}
           onTouchStart={() => setDuck(true)}
           onTouchEnd={() => setDuck(false)}
-          className="flex items-center justify-center gap-1.5 py-3.5 bg-amber-600 text-white font-extrabold text-sm rounded-xl shadow-lg active:bg-amber-700 min-h-[48px] touch-manipulation"
+          className="flex items-center justify-center gap-1.5 py-3.5 bg-amber-600 text-white font-extrabold text-sm rounded-xl shadow-lg active:bg-amber-700 active:scale-95 transition-all min-h-[50px] touch-manipulation"
         >
           <ArrowDown className="w-5 h-5" /> DUCK
         </button>
@@ -1217,10 +1234,10 @@ export function GameCanvas({
         <button
           onClick={triggerSmash}
           disabled={smashChargesUI <= 0}
-          className={`flex items-center justify-center gap-1 py-3.5 font-extrabold text-sm rounded-xl shadow-lg min-h-[48px] touch-manipulation ${
+          className={`flex items-center justify-center gap-1 py-3.5 font-extrabold text-sm rounded-xl shadow-lg min-h-[50px] touch-manipulation transition-all ${
             smashChargesUI > 0
               ? 'gold-gradient-bg text-amber-950 active:scale-95'
-              : 'bg-slate-300 text-slate-500'
+              : 'bg-slate-300 text-slate-500 cursor-not-allowed'
           }`}
         >
           <Zap className="w-5 h-5" /> SMASH ({smashChargesUI})

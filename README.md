@@ -90,19 +90,4 @@ CREATE POLICY "Allow public read/write on stats" ON public.stats FOR ALL USING (
 
 ---
 
-## 🎮 Game Controls
-
-- **Jump**: `Space` / `Up Arrow` / `W` / Tap Screen on Mobile
-- **Duck**: `Down Arrow` / `S` / Hold Duck Button on Mobile
-- **Super Smash**: `X` key / `Shift` / Tap On-screen SMASH Button
-- **Modak Collectible**: Collect 5 modaks to gain +1 free Super Smash Charge!
-
----
-
-## 🎨 Technology Stack
-
-- **Frontend**: React 18 + Vite
-- **Styling**: Tailwind CSS (Custom Saffron, Gold, Crimson & Temple Palette)
-- **Game Engine**: HTML5 Canvas API (Vector graphics, 60 FPS requestAnimationFrame)
-- **Audio**: Web Audio API Sound Synthesizer (No external media assets)
-- **Backend**: Supabase JS Client (`@supabase/supabase-js`)
+g
