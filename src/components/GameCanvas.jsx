@@ -11,6 +11,17 @@ export function GameCanvas({
 }) {
   const canvasRef = useRef(null);
   
+  // Mobile vs Desktop Viewport State
+  const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth < 768 : false);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+  
   // Game State Refs (mutated inside loop for zero lag)
   const gameStateRef = useRef({
     isRunning: true,
@@ -23,7 +34,7 @@ export function GameCanvas({
     isSmashing: false,
     smashTimer: 0,
     
-    // Timers, Modak Progression & Smooth Speed Ease
+    // Timers & Ramping
     elapsedTime: 0,
     obstacleTimer: 0,
     modakTimer: 0,
@@ -37,7 +48,7 @@ export function GameCanvas({
     shakeTimer: 0,
     frameCount: 0,
 
-    // Bipedal Player position & Refined Jump Physics
+    // Bipedal Player position & Jump Physics
     player: {
       x: 100,
       y: 350,
@@ -79,13 +90,13 @@ export function GameCanvas({
   const triggerJump = useCallback(() => {
     const p = gameStateRef.current.player;
     if (p.isGrounded && gameStateRef.current.isRunning) {
-      p.vy = -16.8;
+      p.vy = isMobile ? -21.5 : -16.8;
       p.isGrounded = false;
       p.isDucking = false;
       p.landingSquashTimer = 0;
       audioManager.playJump();
     }
-  }, []);
+  }, [isMobile]);
 
   // Handle Duck Action
   const setDuck = useCallback((ducking) => {
@@ -173,6 +184,17 @@ export function GameCanvas({
     let animationFrameId;
     let lastTimestamp = null;
 
+    // Canvas Resolution based on Viewport (Desktop 860x420 vs Mobile 540x960 9:16 ratio)
+    const canvasWidth = isMobile ? 540 : 860;
+    const canvasHeight = isMobile ? 960 : 420;
+    const groundY = isMobile ? 904 : 404;
+
+    // Reset player position for current resolution
+    const p = gameStateRef.current.player;
+    p.groundY = isMobile ? 848 : 350;
+    p.x = isMobile ? 80 : 100;
+    if (p.isGrounded) p.y = p.groundY;
+
     // Helper: Draw Rounded Rect
     const drawRoundedRect = (x, y, w, h, r, fillColor, strokeColor, strokeWidth = 2) => {
       ctx.beginPath();
@@ -213,18 +235,17 @@ export function GameCanvas({
       return lines;
     };
 
-    // BIPEDAL ANTHROPOMORPHIC MUSHIKA (FESTIVE DHOTI & KURTA SPRITE)
+    // BIPEDAL MUSHIKA SPRITE
     const drawMushika = (x, y, w, h, frame, isSmashing, isDucking, isGrounded, landingSquashTimer, invulnerable) => {
       ctx.save();
       
-      // Invulnerability flash
       if (invulnerable && Math.floor(frame / 4) % 2 === 0) {
         ctx.globalAlpha = 0.4;
       }
 
       // 1. Soft Elliptical Ground Drop Shadow
       ctx.beginPath();
-      ctx.ellipse(x + w / 2, 403, isDucking ? 26 : (landingSquashTimer > 0 ? 24 : 20), 5.5, 0, 0, Math.PI * 2);
+      ctx.ellipse(x + w / 2, groundY - 1, isDucking ? 26 : (landingSquashTimer > 0 ? 24 : 20), 5.5, 0, 0, Math.PI * 2);
       ctx.fillStyle = 'rgba(0, 0, 0, 0.22)';
       ctx.fill();
 
@@ -244,16 +265,13 @@ export function GameCanvas({
       let drawH = isDucking ? h - 20 : h;
 
       if (!isGrounded) {
-        // Stretch vertically during jump
         drawH = h + 4;
         drawY = y - 2;
       } else if (landingSquashTimer > 0) {
-        // Subtle landing squash compression on touchdown
         drawH = h - 6;
         drawY = y + 6;
       }
 
-      // Slight forward lean when running
       const leanAngle = isGrounded && !isDucking && landingSquashTimer <= 0 ? 0.08 : 0;
       ctx.translate(x + w / 2, drawY + drawH / 2);
       ctx.rotate(leanAngle);
@@ -274,25 +292,21 @@ export function GameCanvas({
       const legStride = Math.sin(frame * 0.4) * 9;
 
       if (!isGrounded) {
-        // Jump Pose: Legs tucked up towards Dhoti cleanly
         ctx.fillRect(x + 14, drawY + drawH - 12, 7, 8);
         ctx.fillRect(x + 30, drawY + drawH - 12, 7, 8);
       } else if (isDucking) {
-        // Duck Pose: Knees bent, low crouch
         ctx.fillRect(x + 12, drawY + drawH - 6, 10, 6);
         ctx.fillRect(x + 30, drawY + drawH - 6, 10, 6);
       } else {
-        // Bipedal Running Legs
         ctx.fillRect(x + 14 - legStride * 0.8, drawY + drawH - 8, 7, 10);
         ctx.fillRect(x + 30 + legStride * 0.8, drawY + drawH - 8, 7, 10);
       }
 
-      // 4. Traditional Indian Dhoti Shorts (Saffron & Gold)
+      // 4. Traditional Indian Dhoti Shorts
       const dhotiY = drawY + drawH - 26;
       const dhotiH = 18;
       drawRoundedRect(x + 10, dhotiY, w - 20, dhotiH, 6, '#ea580c', '#c2410c', 1.5);
 
-      // Gold Dhoti Borders & Pleat Lines
       ctx.fillStyle = '#facc15';
       ctx.fillRect(x + 10, dhotiY + dhotiH - 3, w - 20, 3);
       ctx.fillRect(x + w / 2 - 2, dhotiY, 4, dhotiH);
@@ -305,7 +319,6 @@ export function GameCanvas({
       torsoGrad.addColorStop(1, '#991b1b');
       drawRoundedRect(x + 12, torsoY, w - 24, torsoH, 10, torsoGrad, '#7f1d1d', 1.5);
 
-      // Cream Chest Lapel
       ctx.beginPath();
       ctx.moveTo(x + 18, torsoY);
       ctx.lineTo(x + w / 2, torsoY + 12);
@@ -313,7 +326,6 @@ export function GameCanvas({
       ctx.fillStyle = '#fef3c7';
       ctx.fill();
 
-      // Crimson / Gold Waist Sash
       ctx.fillStyle = '#facc15';
       ctx.fillRect(x + 11, torsoY + torsoH - 4, w - 22, 3);
 
@@ -324,7 +336,6 @@ export function GameCanvas({
       const armSwing = Math.sin(frame * 0.4) * 8;
 
       if (!isGrounded) {
-        // Jump Pose: Arms raised up dynamically
         ctx.beginPath();
         ctx.moveTo(x + 14, torsoY + 6);
         ctx.lineTo(x + 6, torsoY - 6);
@@ -332,7 +343,6 @@ export function GameCanvas({
         ctx.lineTo(x + w - 4, torsoY - 6);
         ctx.stroke();
       } else if (isDucking) {
-        // Duck Pose: Arms tucked in
         ctx.beginPath();
         ctx.moveTo(x + 14, torsoY + 8);
         ctx.lineTo(x + 8, torsoY + 16);
@@ -340,7 +350,6 @@ export function GameCanvas({
         ctx.lineTo(x + w - 6, torsoY + 16);
         ctx.stroke();
       } else {
-        // Running Pose: Natural arm swing
         ctx.beginPath();
         ctx.moveTo(x + 14, torsoY + 6);
         ctx.lineTo(x + 6 + armSwing, torsoY + 16);
@@ -370,7 +379,6 @@ export function GameCanvas({
       ctx.fillStyle = '#f472b6';
       ctx.fill();
 
-      // Right Ear with Gold Earring
       ctx.beginPath();
       ctx.arc(headX + 11, headY - 10, 8, 0, Math.PI * 2);
       ctx.fillStyle = '#a16207';
@@ -429,13 +437,11 @@ export function GameCanvas({
       ctx.save();
       const hoverY = y + Math.sin(elapsedTime * 4) * 4;
 
-      // Glow halo
       ctx.beginPath();
       ctx.arc(x, hoverY, 14, 0, Math.PI * 2);
       ctx.fillStyle = 'rgba(250, 204, 21, 0.35)';
       ctx.fill();
 
-      // Base Dome
       ctx.beginPath();
       ctx.arc(x, hoverY + 3, 9, 0, Math.PI);
       ctx.lineTo(x, hoverY - 9);
@@ -446,7 +452,6 @@ export function GameCanvas({
       ctx.lineWidth = 1.5;
       ctx.stroke();
 
-      // Pleat Lines
       ctx.strokeStyle = '#eab308';
       ctx.lineWidth = 1;
       ctx.beginPath();
@@ -482,15 +487,13 @@ export function GameCanvas({
       state.elapsedTime += dt;
       state.frameCount++;
 
-      // MODAK-BASED SPEED PROGRESSION (REQ #1):
-      // Every 10 modaks collected -> +3.5% speed increase (repeating milestone: 10, 20, 30, ...)
+      // MODAK-BASED SPEED PROGRESSION
       const modakMilestones = Math.floor(state.modaksCollected / 10);
       const modakSpeedMult = Math.pow(1.035, modakMilestones);
-      const timeSpeedMult = 1.0 + Math.floor(state.elapsedTime / 30) * 0.01; // +1% per 30s
+      const timeSpeedMult = 1.0 + Math.floor(state.elapsedTime / 30) * 0.01;
       
       const targetMultiplier = Math.min(2.2, modakSpeedMult * timeSpeedMult);
 
-      // Smooth ease-in speed interpolation over ~0.8s (no sudden snap)
       state.smoothMultiplier += (targetMultiplier - state.smoothMultiplier) * Math.min(1.0, dt * 2.5);
 
       const speedPxPerSec = state.baseSpeedPxPerSec * state.smoothMultiplier;
@@ -499,13 +502,11 @@ export function GameCanvas({
       state.distance += (speedPxPerSec * dt) / 10;
       state.score = Math.floor(state.distance * 10) + (state.obstaclesSmashed * 50);
 
-      // Check for 10-Modak Milestone Trigger for Visual Cue Banner
       if (state.modaksCollected >= state.lastMilestoneTriggered + 10 && state.modaksCollected > 0) {
         state.lastMilestoneTriggered = Math.floor(state.modaksCollected / 10) * 10;
-        state.speedUpBannerTimer = 1.2; // 1.2s popup banner
+        state.speedUpBannerTimer = 1.2;
       }
 
-      // Sync debug UI
       if (state.frameCount % 10 === 0) {
         setDebugInfo({
           speedPxSec: Math.round(speedPxPerSec),
@@ -515,7 +516,6 @@ export function GameCanvas({
         });
       }
 
-      // Update Smash Timer
       if (state.isSmashing) {
         state.smashTimer -= dt;
         if (state.smashTimer <= 0) {
@@ -524,20 +524,18 @@ export function GameCanvas({
         }
       }
 
-      // Update Invulnerability
       if (state.invulnerableTimer > 0) {
         state.invulnerableTimer -= dt;
       }
 
-      // REFINED SMOOTH JUMP PHYSICS
-      const p = state.player;
-
+      // JUMP PHYSICS
+      const gravityVal = isMobile ? 0.82 : 0.62;
       if (p.landingSquashTimer > 0) {
         p.landingSquashTimer -= dt;
       }
 
       if (!p.isGrounded) {
-        p.vy += 0.62 * dtScale;
+        p.vy += gravityVal * dtScale;
         p.y += p.vy * dtScale;
         if (p.y >= p.groundY) {
           p.y = p.groundY;
@@ -548,7 +546,7 @@ export function GameCanvas({
       }
 
       // Clear Canvas
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.clearRect(0, 0, canvasWidth, canvasHeight);
 
       // Apply Camera Shake
       ctx.save();
@@ -560,34 +558,30 @@ export function GameCanvas({
       }
 
       // --- 1. DRAW BACKGROUND & GROUND ---
-      const skyGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+      const skyGrad = ctx.createLinearGradient(0, 0, 0, canvasHeight);
       skyGrad.addColorStop(0, '#fef3c7');
       skyGrad.addColorStop(1, '#fffdfa');
       ctx.fillStyle = skyGrad;
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 
-      const groundY = 404;
       ctx.fillStyle = '#ea580c';
-      ctx.fillRect(0, groundY, canvas.width, canvas.height - groundY);
+      ctx.fillRect(0, groundY, canvasWidth, canvasHeight - groundY);
 
       ctx.fillStyle = '#c2410c';
-      ctx.fillRect(0, groundY, canvas.width, 6);
+      ctx.fillRect(0, groundY, canvasWidth, 6);
 
       // Ground grid lines
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
       ctx.lineWidth = 2;
       const lineOffset = (state.elapsedTime * speedPxPerSec) % 40;
-      for (let x = -lineOffset; x < canvas.width; x += 40) {
+      for (let x = -lineOffset; x < canvasWidth; x += 40) {
         ctx.beginPath();
         ctx.moveTo(x, groundY + 6);
-        ctx.lineTo(x - 20, canvas.height);
+        ctx.lineTo(x - 20, canvasHeight);
         ctx.stroke();
       }
 
-      // --- 2. SPAWN & UPDATE OBSTACLES (MEDIUM OBSTACLE HEIGHT - REQ #2) ---
-      // Medium Height: 36px (~26% of canvas height 420px)
-      // Low Barrier top y = groundY - 36 = 368px
-      // Overhead Festoon y = groundY - 102 = 302px (leaves a 66px clear gap below)
+      // --- 2. SPAWN & UPDATE OBSTACLES ---
       const obstacleInterval = Math.max(1.7, 2.5 - Math.floor(state.elapsedTime / 25) * 0.15);
       state.obstacleTimer += dt;
       if (state.obstacleTimer >= obstacleInterval) {
@@ -599,12 +593,14 @@ export function GameCanvas({
 
         const isOverhead = Math.random() < 0.35;
         
-        const obsHeight = 36;
-        const obsWidth = 75;
-        const obsY = isOverhead ? groundY - 102 : groundY - 36;
+        const obsHeight = isMobile ? 52 : 36;
+        const obsWidth = isMobile ? 110 : 75;
+        const obsY = isOverhead 
+          ? (isMobile ? groundY - 145 : groundY - 102) 
+          : (isMobile ? groundY - 52 : groundY - 36);
 
         state.obstacles.push({
-          x: canvas.width + 40,
+          x: canvasWidth + 40,
           y: obsY,
           width: obsWidth,
           height: obsHeight,
@@ -620,15 +616,15 @@ export function GameCanvas({
         state.modakTimer = 0;
         
         const pathChoice = Math.random();
-        let modakY = groundY - 22;
+        let modakY = isMobile ? groundY - 32 : groundY - 22;
         if (pathChoice > 0.65) {
-          modakY = groundY - 130;
+          modakY = isMobile ? groundY - 190 : groundY - 130;
         } else if (pathChoice > 0.35) {
-          modakY = groundY - 80;
+          modakY = isMobile ? groundY - 110 : groundY - 80;
         }
 
         state.modaks.push({
-          x: canvas.width + 30,
+          x: canvasWidth + 30,
           y: modakY,
           radius: 12,
           collected: false
@@ -651,7 +647,6 @@ export function GameCanvas({
         const catTheme = CATEGORY_COLORS[obs.data.category] || CATEGORY_COLORS.Other;
 
         if (obs.type === 'OVERHEAD') {
-          // OVERHEAD FESTOON
           ctx.strokeStyle = '#78350f';
           ctx.lineWidth = 2.5;
           ctx.beginPath();
@@ -664,27 +659,26 @@ export function GameCanvas({
           drawRoundedRect(obs.x, obs.y, obs.width, obs.height, 8, catTheme.fill, catTheme.stroke, 2);
 
           ctx.fillStyle = '#facc15';
-          ctx.font = 'bold 8px Outfit, sans-serif';
-          ctx.fillText('⬇ DUCK', obs.x + 6, obs.y + 11);
-
           ctx.font = 'bold 9px Outfit, sans-serif';
+          ctx.fillText('⬇ DUCK', obs.x + 6, obs.y + 12);
+
+          ctx.font = 'bold 10px Outfit, sans-serif';
           ctx.fillStyle = catTheme.text;
           const lines = wrapText(obs.data.text, obs.width - 12);
           lines.slice(0, 1).forEach((line) => {
-            ctx.fillText(line, obs.x + 6, obs.y + 24);
+            ctx.fillText(line, obs.x + 6, obs.y + 25);
           });
         } else {
-          // LOW BARRIER (MEDIUM HEIGHT)
           drawRoundedRect(obs.x, obs.y, obs.width, obs.height, 8, catTheme.fill, catTheme.stroke, 2);
 
           ctx.fillStyle = catTheme.stroke;
           ctx.fillRect(obs.x + 4, obs.y + 3, obs.width - 8, 2.5);
 
-          ctx.font = 'bold 8px Outfit, sans-serif';
+          ctx.font = 'bold 9px Outfit, sans-serif';
           ctx.fillStyle = '#fde047';
           ctx.fillText(`⬆ JUMP`, obs.x + 6, obs.y + 12);
 
-          ctx.font = 'bold 9px Outfit, sans-serif';
+          ctx.font = 'bold 10px Outfit, sans-serif';
           ctx.fillStyle = catTheme.text;
           const lines = wrapText(obs.data.text, obs.width - 12);
           lines.slice(0, 1).forEach((line) => {
@@ -692,7 +686,6 @@ export function GameCanvas({
           });
         }
 
-        // Tightened Obstacle Hitbox
         const obsBox = {
           x: obs.x + 6,
           y: obs.y + 6,
@@ -801,7 +794,7 @@ export function GameCanvas({
         }
       }
 
-      // --- 5. DRAW PLAYER (BIPEDAL MUSHIKA) ---
+      // --- 5. DRAW PLAYER ---
       drawMushika(
         p.x, 
         p.y, 
@@ -815,19 +808,19 @@ export function GameCanvas({
         state.invulnerableTimer > 0
       );
 
-      // --- 6. DRAW SPEED UP BANNER VISUAL CUE (REQ #1) ---
+      // --- 6. SPEED UP BANNER VISUAL CUE ---
       if (state.speedUpBannerTimer > 0) {
         state.speedUpBannerTimer -= dt;
         const alpha = Math.min(1, state.speedUpBannerTimer);
-        const bannerY = 70 - (1.2 - state.speedUpBannerTimer) * 15;
+        const bannerY = isMobile ? 120 - (1.2 - state.speedUpBannerTimer) * 20 : 70 - (1.2 - state.speedUpBannerTimer) * 15;
         
         ctx.save();
         ctx.globalAlpha = alpha;
-        drawRoundedRect(canvas.width / 2 - 95, bannerY, 190, 32, 16, '#facc15', '#ca8a04', 2);
+        drawRoundedRect(canvasWidth / 2 - 95, bannerY, 190, 32, 16, '#facc15', '#ca8a04', 2);
         ctx.font = 'extrabold 13px Outfit, sans-serif';
         ctx.fillStyle = '#78350f';
         ctx.textAlign = 'center';
-        ctx.fillText('⚡ SPEED UP! (+3.5%)', canvas.width / 2, bannerY + 20);
+        ctx.fillText('⚡ SPEED UP! (+3.5%)', canvasWidth / 2, bannerY + 20);
         ctx.restore();
       }
 
@@ -841,13 +834,13 @@ export function GameCanvas({
     return () => {
       cancelAnimationFrame(animationFrameId);
     };
-  }, [onObstacleSmashed, onGameOver]);
+  }, [onObstacleSmashed, onGameOver, isMobile]);
 
   return (
     <div className="relative w-full max-w-4xl mx-auto flex flex-col items-center px-1 sm:px-0">
       
       {/* MOBILE RESPONSIVE COMPACT HUD OVERLAY BAR */}
-      <div className="w-full bg-slate-900/95 text-white rounded-t-2xl px-3 sm:px-5 py-2.5 flex flex-wrap items-center justify-between border-b border-saffron-500/30 gap-2 shadow-lg backdrop-blur-md">
+      <div className="w-full bg-slate-900/95 text-white rounded-t-2xl px-3 sm:px-5 py-2.5 flex flex-wrap items-center justify-between border-b border-saffron-500/30 gap-2 shadow-lg backdrop-blur-md z-10">
         
         {/* Lives */}
         <div className="flex items-center gap-1">
@@ -908,28 +901,31 @@ export function GameCanvas({
 
       </div>
 
-      {/* CANVAS ELEMENT WITH SWIPE GESTURE & DEBUG OVERLAY */}
+      {/* 9:16 MOBILE CANVAS CONTAINER & DESKTOP WIDESCREEN CONTAINER (REQUIREMENT #1, #2, #4) */}
       <div 
-        className="relative w-full overflow-hidden rounded-b-2xl bg-slate-900 shadow-2xl border-x border-b border-saffron-500/20 touch-none"
+        className={`relative w-full shadow-2xl border-x border-b border-saffron-500/20 overflow-hidden rounded-b-2xl bg-slate-900 touch-none flex flex-col items-center justify-center ${
+          isMobile 
+            ? 'aspect-[9/16] max-h-[calc(100vh-140px)] w-auto mx-auto' 
+            : ''
+        }`}
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
         <canvas
           ref={canvasRef}
-          width={860}
-          height={420}
-          className="w-full h-auto block touch-none cursor-pointer"
+          width={isMobile ? 540 : 860}
+          height={isMobile ? 960 : 420}
+          className="w-full h-full object-contain block touch-none cursor-pointer"
           onClick={triggerJump}
         />
 
         {/* TEMPORARY ON-SCREEN DEBUG DISPLAY */}
         <div className="absolute top-2 right-2 sm:top-3 sm:right-4 bg-slate-950/85 text-emerald-400 border border-emerald-500/40 font-mono text-[10px] sm:text-[11px] px-2.5 py-1 rounded-lg shadow-md backdrop-blur-sm pointer-events-none z-20">
           <div className="font-bold text-amber-300 text-[9px] sm:text-[10px] uppercase tracking-wider border-b border-emerald-500/30 pb-0.5 mb-0.5">
-            🐞 Modak Speed & Medium Height
+            🐞 {isMobile ? 'Mobile 9:16 Lock (540x960)' : 'Desktop View (860x420)'}
           </div>
-          <div>Speed: <span className="text-white font-bold">{debugInfo.speedPxSec} px/s</span> | Mult: <span className="text-white font-bold">{debugInfo.multiplier}x</span></div>
+          <div>Speed: <span className="text-white font-bold">{debugInfo.speedPxSec} px/s</span></div>
           <div>Modaks: <span className="text-yellow-300 font-bold">{debugInfo.modaks} / {debugInfo.nextMilestone} Next</span></div>
-          <div>Obstacle: <span className="text-emerald-300 font-bold">75x36px</span> | Margin: <span className="text-emerald-300 font-bold">+191px (28%)</span></div>
         </div>
 
         {/* Dynamic Controls Hint Overlay */}
