@@ -14,6 +14,7 @@ export function App() {
   const [playerObstacle, setPlayerObstacle] = useState(null);
   const [playerName, setPlayerName] = useState('Anonymous Devotee');
   const [gameResult, setGameResult] = useState(null);
+  const [sessionBestScore, setSessionBestScore] = useState(0);
 
   const {
     totalDestroyed,
@@ -46,10 +47,17 @@ export function App() {
   // 3. Handle Game Over Sequence
   const handleGameOver = async (result) => {
     setGameResult(result);
+    const runScore = result?.score || 0;
+    setSessionBestScore(prevBest => Math.max(prevBest, runScore));
     if (result.smashed > 0 || result.modaks > 0) {
       await submitScore(playerName, result.smashed, result.modaks);
     }
     setActivePage('gameover');
+  };
+
+  // 4. Handle Instant Unlimited Retry (bypasses submission form, reuses session obstacle)
+  const handleInstantRetry = () => {
+    setActivePage('game');
   };
 
   return (
@@ -96,7 +104,9 @@ export function App() {
             gameResult={gameResult}
             playerObstacle={playerObstacle}
             playerName={playerName}
-            onPlayAgain={() => setActivePage('submit')}
+            sessionBestScore={sessionBestScore}
+            onInstantRetry={handleInstantRetry}
+            onSubmitNewObstacle={() => setActivePage('submit')}
             onNavigate={setActivePage}
           />
         )}

@@ -34,7 +34,7 @@ export function GameCanvas({
     isSmashing: false,
     smashTimer: 0,
     
-    // Timers & Ramping
+    // Timers, Modak Progression & Smooth Speed Ease
     elapsedTime: 0,
     obstacleTimer: 0,
     modakTimer: 0,
@@ -47,6 +47,13 @@ export function GameCanvas({
     invulnerableTimer: 0,
     shakeTimer: 0,
     frameCount: 0,
+
+    // Cutscene & Divine Blessing State
+    hasTriggered20ModakCutscene: false,
+    isCutsceneActive: false,
+    cutsceneTimer: 0,
+    blessedBuffTimer: 0,
+    cutsceneMushikaX: 100,
 
     // Bipedal Player position & Jump Physics
     player: {
@@ -86,29 +93,55 @@ export function GameCanvas({
     obstaclesPoolRef.current = active.length > 0 ? active : availableObstacles;
   }, [availableObstacles]);
 
+  // Skip Cutscene Helper
+  const skipCutscene = useCallback(() => {
+    const state = gameStateRef.current;
+    if (state.isCutsceneActive) {
+      state.isCutsceneActive = false;
+      state.score += 50;
+      state.smashCharges += 1;
+      state.blessedBuffTimer = 7.0;
+      audioManager.playModak();
+    }
+  }, []);
+
   // Handle Jump Action
   const triggerJump = useCallback(() => {
-    const p = gameStateRef.current.player;
-    if (p.isGrounded && gameStateRef.current.isRunning) {
+    const state = gameStateRef.current;
+    if (state.isCutsceneActive) {
+      skipCutscene();
+      return;
+    }
+    const p = state.player;
+    if (p.isGrounded && state.isRunning) {
       p.vy = isMobile ? -21.5 : -16.8;
       p.isGrounded = false;
       p.isDucking = false;
       p.landingSquashTimer = 0;
       audioManager.playJump();
     }
-  }, [isMobile]);
+  }, [isMobile, skipCutscene]);
 
   // Handle Duck Action
   const setDuck = useCallback((ducking) => {
-    const p = gameStateRef.current.player;
-    if (p.isGrounded && gameStateRef.current.isRunning) {
+    const state = gameStateRef.current;
+    if (state.isCutsceneActive) {
+      skipCutscene();
+      return;
+    }
+    const p = state.player;
+    if (p.isGrounded && state.isRunning) {
       p.isDucking = ducking;
     }
-  }, []);
+  }, [skipCutscene]);
 
   // Handle Smash Trigger
   const triggerSmash = useCallback(() => {
     const state = gameStateRef.current;
+    if (state.isCutsceneActive) {
+      skipCutscene();
+      return;
+    }
     if (state.smashCharges > 0 && !state.isSmashing && state.isRunning) {
       state.smashCharges -= 1;
       state.isSmashing = true;
@@ -117,7 +150,7 @@ export function GameCanvas({
       setIsSmashingUI(true);
       audioManager.playSmash();
     }
-  }, []);
+  }, [skipCutscene]);
 
   // Keyboard Event Listeners
   useEffect(() => {
@@ -184,12 +217,10 @@ export function GameCanvas({
     let animationFrameId;
     let lastTimestamp = null;
 
-    // Canvas Resolution based on Viewport (Desktop 860x420 vs Mobile 540x960 9:16 ratio)
     const canvasWidth = isMobile ? 540 : 860;
     const canvasHeight = isMobile ? 960 : 420;
     const groundY = isMobile ? 904 : 404;
 
-    // Reset player position for current resolution
     const p = gameStateRef.current.player;
     p.groundY = isMobile ? 848 : 350;
     p.x = isMobile ? 80 : 100;
@@ -235,31 +266,138 @@ export function GameCanvas({
       return lines;
     };
 
+    // DRAW STYLIZED CANVAS LORD GANESHA FIGURE (CUTSCENE MILESTONE)
+    const drawGanesha = (x, y, scale = 1.0, isBlessing = false) => {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.scale(scale, scale);
+
+      // 1. Radiant Divine Saffron & Gold Halo Glow
+      const haloGrad = ctx.createRadialGradient(0, -30, 10, 0, -30, 90);
+      haloGrad.addColorStop(0, 'rgba(250, 204, 21, 0.85)');
+      haloGrad.addColorStop(0.6, 'rgba(249, 115, 22, 0.4)');
+      haloGrad.addColorStop(1, 'rgba(251, 146, 60, 0)');
+      ctx.beginPath();
+      ctx.arc(0, -30, 90, 0, Math.PI * 2);
+      ctx.fillStyle = haloGrad;
+      ctx.fill();
+
+      // 2. Lotus Altar Platform
+      ctx.fillStyle = '#f472b6'; // Pink petals
+      for (let p = -3; p <= 3; p++) {
+        ctx.beginPath();
+        ctx.ellipse(p * 14, 30, 12, 18, (p * Math.PI) / 12, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.fillStyle = '#facc15';
+      ctx.fillRect(-45, 25, 90, 10);
+
+      // 3. Seated Body & Dhoti
+      ctx.fillStyle = '#ea580c'; // Saffron Dhoti
+      ctx.beginPath();
+      ctx.arc(0, 10, 32, 0, Math.PI);
+      ctx.fill();
+
+      // Golden Kurta Body
+      ctx.fillStyle = '#f59e0b';
+      ctx.beginPath();
+      ctx.ellipse(0, -10, 22, 26, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 4. Elephant Head
+      ctx.fillStyle = '#f59e0b'; // Warm Ganesha skin tone
+      ctx.beginPath();
+      ctx.arc(0, -45, 24, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Large Elephant Ears
+      ctx.beginPath();
+      ctx.ellipse(-26, -45, 16, 22, -0.2, 0, Math.PI * 2);
+      ctx.ellipse(26, -45, 16, 22, 0.2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#fb7185';
+      ctx.beginPath();
+      ctx.ellipse(-26, -45, 9, 13, -0.2, 0, Math.PI * 2);
+      ctx.ellipse(26, -45, 9, 13, 0.2, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Trunk curving gracefully holding a Modak
+      ctx.strokeStyle = '#d97706';
+      ctx.lineWidth = 10;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(0, -38);
+      ctx.quadraticCurveTo(-14, -20, -18, -12);
+      ctx.stroke();
+
+      // 5. Four Arms & Blessing Mudra
+      ctx.strokeStyle = '#d97706';
+      ctx.lineWidth = 6;
+      // Abhaya Mudra Blessing Palm (Right Arm raised)
+      ctx.beginPath();
+      ctx.moveTo(18, -25);
+      ctx.lineTo(32, -35);
+      ctx.stroke();
+      ctx.fillStyle = '#f59e0b';
+      ctx.beginPath();
+      ctx.arc(34, -38, 6, 0, Math.PI * 2); // Blessing Palm
+      ctx.fill();
+
+      // Modak Bowl in Left Hand
+      ctx.beginPath();
+      ctx.moveTo(-18, -25);
+      ctx.lineTo(-30, -20);
+      ctx.stroke();
+
+      // 6. High Golden Crown (Mukut)
+      ctx.fillStyle = '#eab308';
+      ctx.beginPath();
+      ctx.moveTo(-16, -65);
+      ctx.lineTo(0, -95);
+      ctx.lineTo(16, -65);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = '#b45309';
+      ctx.stroke();
+
+      // Crown Jewel & Tilak
+      ctx.beginPath();
+      ctx.arc(0, -75, 4, 0, Math.PI * 2);
+      ctx.fillStyle = '#dc2626';
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.arc(0, -50, 3, 0, Math.PI * 2);
+      ctx.fillStyle = '#dc2626';
+      ctx.fill();
+
+      ctx.restore();
+    };
+
     // BIPEDAL MUSHIKA SPRITE
-    const drawMushika = (x, y, w, h, frame, isSmashing, isDucking, isGrounded, landingSquashTimer, invulnerable) => {
+    const drawMushika = (x, y, w, h, frame, isSmashing, isDucking, isGrounded, landingSquashTimer, invulnerable, isBlessed = false) => {
       ctx.save();
       
-      if (invulnerable && Math.floor(frame / 4) % 2 === 0) {
+      if (invulnerable && !isBlessed && Math.floor(frame / 4) % 2 === 0) {
         ctx.globalAlpha = 0.4;
       }
 
-      // 1. Soft Elliptical Ground Drop Shadow
+      // Drop Shadow
       ctx.beginPath();
       ctx.ellipse(x + w / 2, groundY - 1, isDucking ? 26 : (landingSquashTimer > 0 ? 24 : 20), 5.5, 0, 0, Math.PI * 2);
       ctx.fillStyle = 'rgba(0, 0, 0, 0.22)';
       ctx.fill();
 
-      // Smash Aura Glow
-      if (isSmashing) {
+      // Divine Blessing Golden Aura Glow
+      if (isBlessed || isSmashing) {
         ctx.shadowColor = '#eab308';
-        ctx.shadowBlur = 25;
+        ctx.shadowBlur = 30;
         ctx.beginPath();
-        ctx.arc(x + w / 2, y + h / 2, w * 0.75, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(250, 204, 21, 0.3)';
+        ctx.arc(x + w / 2, y + h / 2, w * 0.85, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(250, 204, 21, 0.35)';
         ctx.fill();
       }
 
-      // Vertical Running Bob & Landing Squash calculation
       const bob = isGrounded && !isDucking && landingSquashTimer <= 0 ? Math.sin(frame * 0.4) * 2.5 : 0;
       let drawY = isDucking ? y + 20 : y + bob;
       let drawH = isDucking ? h - 20 : h;
@@ -277,7 +415,7 @@ export function GameCanvas({
       ctx.rotate(leanAngle);
       ctx.translate(-(x + w / 2), -(drawY + drawH / 2));
 
-      // 2. Animated Tail
+      // Tail
       const tailWag = Math.sin(frame * 0.3) * 8;
       ctx.beginPath();
       ctx.moveTo(x + 12, drawY + drawH - 18);
@@ -287,7 +425,7 @@ export function GameCanvas({
       ctx.lineCap = 'round';
       ctx.stroke();
 
-      // 3. Upright Legs
+      // Legs
       ctx.fillStyle = '#78350f';
       const legStride = Math.sin(frame * 0.4) * 9;
 
@@ -302,7 +440,7 @@ export function GameCanvas({
         ctx.fillRect(x + 30 + legStride * 0.8, drawY + drawH - 8, 7, 10);
       }
 
-      // 4. Traditional Indian Dhoti Shorts
+      // Dhoti
       const dhotiY = drawY + drawH - 26;
       const dhotiH = 18;
       drawRoundedRect(x + 10, dhotiY, w - 20, dhotiH, 6, '#ea580c', '#c2410c', 1.5);
@@ -311,7 +449,7 @@ export function GameCanvas({
       ctx.fillRect(x + 10, dhotiY + dhotiH - 3, w - 20, 3);
       ctx.fillRect(x + w / 2 - 2, dhotiY, 4, dhotiH);
 
-      // 5. Upright Torso & Kurta Vest
+      // Torso & Kurta
       const torsoY = drawY + 16;
       const torsoH = drawH - 38;
       const torsoGrad = ctx.createLinearGradient(x, torsoY, x + w, torsoY + torsoH);
@@ -329,7 +467,7 @@ export function GameCanvas({
       ctx.fillStyle = '#facc15';
       ctx.fillRect(x + 11, torsoY + torsoH - 4, w - 22, 3);
 
-      // 6. Upright Bipedal Arms
+      // Arms
       ctx.strokeStyle = '#78350f';
       ctx.lineWidth = 4;
       ctx.lineCap = 'round';
@@ -358,7 +496,7 @@ export function GameCanvas({
         ctx.stroke();
       }
 
-      // 7. Head
+      // Head
       const headX = x + w / 2;
       const headY = isDucking ? drawY + 14 : drawY + 12;
       ctx.beginPath();
@@ -369,7 +507,7 @@ export function GameCanvas({
       ctx.lineWidth = 1.5;
       ctx.stroke();
 
-      // 8. Cute Ears & Gold Earring
+      // Ears & Earring
       ctx.beginPath();
       ctx.arc(headX - 11, headY - 10, 8, 0, Math.PI * 2);
       ctx.fillStyle = '#a16207';
@@ -393,7 +531,7 @@ export function GameCanvas({
       ctx.lineWidth = 1.5;
       ctx.stroke();
 
-      // 9. Large Expressive Eyes & Highlight Sparkle
+      // Eyes
       ctx.beginPath();
       ctx.arc(headX + 4, headY - 2, 4, 0, Math.PI * 2);
       ctx.fillStyle = '#0f172a';
@@ -404,26 +542,26 @@ export function GameCanvas({
       ctx.fillStyle = '#ffffff';
       ctx.fill();
 
-      // Smiling Mouth
+      // Mouth
       ctx.beginPath();
       ctx.arc(headX + 3, headY + 5, 3.2, 0.2, Math.PI - 0.2);
       ctx.strokeStyle = '#451a03';
       ctx.lineWidth = 1.5;
       ctx.stroke();
 
-      // Pink Nose
+      // Nose
       ctx.beginPath();
       ctx.arc(headX + 13, headY + 2, 3, 0, Math.PI * 2);
       ctx.fillStyle = '#f43f5e';
       ctx.fill();
 
-      // 10. Red Tilak Mark
+      // Tilak
       ctx.beginPath();
       ctx.arc(headX, headY - 7, 2.2, 0, Math.PI * 2);
       ctx.fillStyle = '#dc2626';
       ctx.fill();
 
-      // 11. Divine Modak in Hand
+      // Modak
       ctx.beginPath();
       ctx.arc(headX + 12, headY + 12, 4.5, 0, Math.PI * 2);
       ctx.fillStyle = '#facc15';
@@ -484,6 +622,115 @@ export function GameCanvas({
 
       const dtScale = dt * 60;
 
+      // 1. CHECK FOR 20 MODAKS STORY CUTSCENE TRIGGER (REQUIREMENT #1)
+      if (state.modaksCollected >= 20 && !state.hasTriggered20ModakCutscene && !state.isCutsceneActive) {
+        state.hasTriggered20ModakCutscene = true;
+        state.isCutsceneActive = true;
+        state.cutsceneTimer = 0;
+        state.cutsceneMushikaX = p.x;
+        state.obstacles = []; // Clear obstacles for clean cutscene
+      }
+
+      // --- CUTSCENE EXECUTION BRANCH ---
+      if (state.isCutsceneActive) {
+        state.cutsceneTimer += dt;
+        state.frameCount++;
+
+        // Clear Canvas
+        ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+
+        // Sky & Ground Background
+        const skyGrad = ctx.createLinearGradient(0, 0, 0, canvasHeight);
+        skyGrad.addColorStop(0, '#fef3c7');
+        skyGrad.addColorStop(1, '#fffdfa');
+        ctx.fillStyle = skyGrad;
+        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+
+        ctx.fillStyle = '#ea580c';
+        ctx.fillRect(0, groundY, canvasWidth, canvasHeight - groundY);
+        ctx.fillStyle = '#c2410c';
+        ctx.fillRect(0, groundY, canvasWidth, 6);
+
+        // Ganesha Target Position
+        const ganeshaX = isMobile ? canvasWidth - 140 : canvasWidth - 180;
+        const ganeshaY = isMobile ? groundY - 140 : groundY - 110;
+        const targetMushikaX = ganeshaX - 85;
+
+        // Cutscene Steps:
+        // Step 1 (~1.0s): Mushika approaches Ganesha
+        if (state.cutsceneTimer < 1.2) {
+          state.cutsceneMushikaX += (targetMushikaX - state.cutsceneMushikaX) * Math.min(1.0, dt * 3.5);
+        }
+
+        // Draw Ganesha
+        drawGanesha(ganeshaX, ganeshaY, isMobile ? 1.0 : 1.15, state.cutsceneTimer >= 2.0);
+
+        // Draw Mushika
+        drawMushika(
+          state.cutsceneMushikaX,
+          p.groundY,
+          p.width,
+          p.height,
+          state.frameCount,
+          false,
+          false,
+          true,
+          0,
+          false,
+          state.cutsceneTimer >= 2.4
+        );
+
+        // Step 2 & 3: Floating Modak & Sparkle Blessing (~1.2s to 3.2s)
+        if (state.cutsceneTimer >= 1.2 && state.cutsceneTimer < 3.2) {
+          const modakProgress = Math.min(1.0, (state.cutsceneTimer - 1.2) / 1.0);
+          const modakX = (state.cutsceneMushikaX + 30) + (ganeshaX - (state.cutsceneMushikaX + 30)) * modakProgress;
+          const modakY = (p.groundY - 10) - (p.groundY - 10 - (ganeshaY - 20)) * modakProgress;
+          
+          drawModak(modakX, modakY, state.cutsceneTimer);
+
+          if (state.cutsceneTimer >= 2.2) {
+            // Sparkles burst
+            for (let k = 0; k < 4; k++) {
+              const spX = ganeshaX + (Math.random() - 0.5) * 120;
+              const spY = ganeshaY + (Math.random() - 0.5) * 120;
+              ctx.beginPath();
+              ctx.arc(spX, spY, Math.random() * 4 + 2, 0, Math.PI * 2);
+              ctx.fillStyle = '#facc15';
+              ctx.fill();
+            }
+          }
+        }
+
+        // Step 4: Text Overlay Banner & Complete Cutscene (~3.2s to 4.2s)
+        if (state.cutsceneTimer >= 3.0) {
+          ctx.save();
+          drawRoundedRect(canvasWidth / 2 - 170, 70, 340, 48, 24, '#facc15', '#ca8a04', 3);
+          ctx.font = 'extrabold 15px Outfit, sans-serif';
+          ctx.fillStyle = '#78350f';
+          ctx.textAlign = 'center';
+          ctx.fillText("🪔 Ganpati Bappa's Blessing Received!", canvasWidth / 2, 98);
+          ctx.font = 'bold 11px Outfit, sans-serif';
+          ctx.fillStyle = '#ea580c';
+          ctx.fillText("+50 Bonus Points & 7s Divine Invincibility!", canvasWidth / 2, 114);
+          ctx.restore();
+        }
+
+        // Skip Prompt
+        ctx.font = 'bold 10px Outfit, sans-serif';
+        ctx.fillStyle = '#92400e';
+        ctx.textAlign = 'center';
+        ctx.fillText('Tap screen or press Space to continue', canvasWidth / 2, canvasHeight - 20);
+
+        // Auto Finish Cutscene at 4.2s
+        if (state.cutsceneTimer >= 4.2) {
+          skipCutscene();
+        }
+
+        animationFrameId = requestAnimationFrame(gameLoop);
+        return;
+      }
+      // --- END CUTSCENE BRANCH ---
+
       state.elapsedTime += dt;
       state.frameCount++;
 
@@ -501,6 +748,12 @@ export function GameCanvas({
 
       state.distance += (speedPxPerSec * dt) / 10;
       state.score = Math.floor(state.distance * 10) + (state.obstaclesSmashed * 50);
+
+      // Decrement Divine Blessed Buff Timer
+      if (state.blessedBuffTimer > 0) {
+        state.blessedBuffTimer -= dt;
+        state.invulnerableTimer = Math.max(state.invulnerableTimer, state.blessedBuffTimer);
+      }
 
       if (state.modaksCollected >= state.lastMilestoneTriggered + 10 && state.modaksCollected > 0) {
         state.lastMilestoneTriggered = Math.floor(state.modaksCollected / 10) * 10;
@@ -700,7 +953,7 @@ export function GameCanvas({
           pBox.y + pBox.h > obsBox.y;
 
         if (isColliding && !obs.smashed) {
-          if (state.isSmashing) {
+          if (state.isSmashing || state.blessedBuffTimer > 0) {
             obs.smashed = true;
             state.obstaclesSmashed += 1;
             setSmashedUI(state.obstaclesSmashed);
@@ -805,7 +1058,8 @@ export function GameCanvas({
         p.isDucking, 
         p.isGrounded,
         p.landingSquashTimer,
-        state.invulnerableTimer > 0
+        state.invulnerableTimer > 0,
+        state.blessedBuffTimer > 0
       );
 
       // --- 6. SPEED UP BANNER VISUAL CUE ---
@@ -834,7 +1088,7 @@ export function GameCanvas({
     return () => {
       cancelAnimationFrame(animationFrameId);
     };
-  }, [onObstacleSmashed, onGameOver, isMobile]);
+  }, [onObstacleSmashed, onGameOver, isMobile, skipCutscene]);
 
   return (
     <div className="relative w-full max-w-4xl mx-auto flex flex-col items-center px-1 sm:px-0">
@@ -901,7 +1155,7 @@ export function GameCanvas({
 
       </div>
 
-      {/* 9:16 MOBILE CANVAS CONTAINER & DESKTOP WIDESCREEN CONTAINER (REQUIREMENT #1, #2, #4) */}
+      {/* 9:16 MOBILE CANVAS CONTAINER & DESKTOP WIDESCREEN CONTAINER */}
       <div 
         className={`relative w-full shadow-2xl border-x border-b border-saffron-500/20 overflow-hidden rounded-b-2xl bg-slate-900 touch-none flex flex-col items-center justify-center ${
           isMobile 
@@ -922,10 +1176,10 @@ export function GameCanvas({
         {/* TEMPORARY ON-SCREEN DEBUG DISPLAY */}
         <div className="absolute top-2 right-2 sm:top-3 sm:right-4 bg-slate-950/85 text-emerald-400 border border-emerald-500/40 font-mono text-[10px] sm:text-[11px] px-2.5 py-1 rounded-lg shadow-md backdrop-blur-sm pointer-events-none z-20">
           <div className="font-bold text-amber-300 text-[9px] sm:text-[10px] uppercase tracking-wider border-b border-emerald-500/30 pb-0.5 mb-0.5">
-            🐞 {isMobile ? 'Mobile 9:16 Lock (540x960)' : 'Desktop View (860x420)'}
+            🐞 20 Modak Story Cutscene
           </div>
           <div>Speed: <span className="text-white font-bold">{debugInfo.speedPxSec} px/s</span></div>
-          <div>Modaks: <span className="text-yellow-300 font-bold">{debugInfo.modaks} / {debugInfo.nextMilestone} Next</span></div>
+          <div>Modaks: <span className="text-yellow-300 font-bold">{debugInfo.modaks} / 20 Story Cutscene</span></div>
         </div>
 
         {/* Dynamic Controls Hint Overlay */}
