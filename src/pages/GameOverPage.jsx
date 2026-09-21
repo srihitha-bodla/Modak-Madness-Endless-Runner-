@@ -102,15 +102,15 @@ export function GameOverPage({
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
             <button
               onClick={onInstantRetry}
-              className="w-full sm:w-auto px-8 py-4 rounded-full saffron-gradient-bg text-white font-extrabold text-lg shadow-xl hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-2 group"
+              className="w-full sm:w-auto px-8 py-4 min-h-[52px] rounded-full saffron-gradient-bg text-white font-extrabold text-base sm:text-lg shadow-xl hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-2 group touch-manipulation"
             >
-              <RefreshCw className="w-6 h-6 group-hover:rotate-180 transition-transform duration-500" />
+              <RefreshCw className="w-5 h-5 sm:w-6 sm:h-6 group-hover:rotate-180 transition-transform duration-500" />
               <span>Retry Now (Instant Start)</span>
             </button>
 
             <button
               onClick={() => onNavigate('leaderboard')}
-              className="w-full sm:w-auto px-6 py-3.5 rounded-full bg-white text-slate-700 hover:text-saffron-700 font-bold text-sm border border-slate-300 hover:border-saffron-300 shadow-sm transition-all flex items-center justify-center gap-2"
+              className="w-full sm:w-auto px-6 py-3.5 min-h-[48px] rounded-full bg-white text-slate-700 hover:text-saffron-700 font-bold text-sm border border-slate-300 hover:border-saffron-300 shadow-sm transition-all flex items-center justify-center gap-2 touch-manipulation"
             >
               <Trophy className="w-4 h-4 text-amber-500" />
               Leaderboard
@@ -118,7 +118,7 @@ export function GameOverPage({
 
             <button
               onClick={() => onNavigate('community')}
-              className="w-full sm:w-auto px-6 py-3.5 rounded-full bg-white text-slate-700 hover:text-saffron-700 font-bold text-sm border border-slate-300 hover:border-saffron-300 shadow-sm transition-all flex items-center justify-center gap-2"
+              className="w-full sm:w-auto px-6 py-3.5 min-h-[48px] rounded-full bg-white text-slate-700 hover:text-saffron-700 font-bold text-sm border border-slate-300 hover:border-saffron-300 shadow-sm transition-all flex items-center justify-center gap-2 touch-manipulation"
             >
               <Grid className="w-4 h-4 text-saffron-600" />
               Community Wall
@@ -126,10 +126,10 @@ export function GameOverPage({
           </div>
 
           {/* SECONDARY OPTION: SUBMIT A NEW OBSTACLE */}
-          <div>
+          <div className="pt-1">
             <button
               onClick={onSubmitNewObstacle}
-              className="text-xs font-semibold text-saffron-700 hover:text-saffron-900 hover:underline flex items-center justify-center gap-1 mx-auto py-1 px-3 rounded-full hover:bg-amber-50 transition-colors"
+              className="text-xs sm:text-sm font-bold text-saffron-700 hover:text-saffron-900 hover:underline flex items-center justify-center gap-1.5 mx-auto py-2 px-4 rounded-full hover:bg-amber-100/60 active:bg-amber-200/80 transition-colors min-h-[44px] touch-manipulation"
             >
               <PlusCircle className="w-4 h-4 text-saffron-600" />
               <span>Want to add another personal goal? Submit a new obstacle</span>

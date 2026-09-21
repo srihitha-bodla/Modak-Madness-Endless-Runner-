@@ -651,9 +651,9 @@ export function GameCanvas({
         ctx.fillStyle = '#c2410c';
         ctx.fillRect(0, groundY, canvasWidth, 6);
 
-        // Ganesha Target Position
-        const ganeshaX = isMobile ? canvasWidth - 140 : canvasWidth - 180;
-        const ganeshaY = isMobile ? groundY - 140 : groundY - 110;
+        // Ganesha Target Position - Perfectly aligned on ground
+        const ganeshaX = isMobile ? canvasWidth - 130 : canvasWidth - 180;
+        const ganeshaY = groundY - 35; // Ground alignment: Lotus platform sits on ground line
         const targetMushikaX = ganeshaX - 85;
 
         // Cutscene Steps:
@@ -690,9 +690,10 @@ export function GameCanvas({
 
           if (state.cutsceneTimer >= 2.2) {
             // Sparkles burst
-            for (let k = 0; k < 4; k++) {
-              const spX = ganeshaX + (Math.random() - 0.5) * 120;
-              const spY = ganeshaY + (Math.random() - 0.5) * 120;
+            const sparkleCount = isMobile ? 3 : 5;
+            for (let k = 0; k < sparkleCount; k++) {
+              const spX = ganeshaX + (Math.random() - 0.5) * (isMobile ? 80 : 120);
+              const spY = ganeshaY + (Math.random() - 0.5) * (isMobile ? 80 : 120);
               ctx.beginPath();
               ctx.arc(spX, spY, Math.random() * 4 + 2, 0, Math.PI * 2);
               ctx.fillStyle = '#facc15';
@@ -701,25 +702,30 @@ export function GameCanvas({
           }
         }
 
-        // Step 4: Text Overlay Banner & Complete Cutscene (~3.2s to 4.2s)
+        // Step 4: Text Overlay Banner & Complete Cutscene (~3.0s to 4.2s)
         if (state.cutsceneTimer >= 3.0) {
           ctx.save();
-          drawRoundedRect(canvasWidth / 2 - 170, 70, 340, 48, 24, '#facc15', '#ca8a04', 3);
-          ctx.font = 'extrabold 15px Outfit, sans-serif';
+          const bannerY = isMobile ? 140 : 60;
+          const bannerW = isMobile ? 360 : 340;
+          const bannerH = isMobile ? 54 : 48;
+          drawRoundedRect(canvasWidth / 2 - bannerW / 2, bannerY, bannerW, bannerH, 24, '#facc15', '#ca8a04', 3);
+          
+          ctx.font = isMobile ? 'extrabold 16px Outfit, sans-serif' : 'extrabold 15px Outfit, sans-serif';
           ctx.fillStyle = '#78350f';
           ctx.textAlign = 'center';
-          ctx.fillText("🪔 Ganpati Bappa's Blessing Received!", canvasWidth / 2, 98);
-          ctx.font = 'bold 11px Outfit, sans-serif';
+          ctx.fillText("🪔 Ganpati Bappa's Blessing Received!", canvasWidth / 2, bannerY + (isMobile ? 24 : 22));
+          
+          ctx.font = isMobile ? 'bold 12px Outfit, sans-serif' : 'bold 11px Outfit, sans-serif';
           ctx.fillStyle = '#ea580c';
-          ctx.fillText("+50 Bonus Points & 7s Divine Invincibility!", canvasWidth / 2, 114);
+          ctx.fillText("+50 Bonus Points & 7s Divine Invincibility!", canvasWidth / 2, bannerY + (isMobile ? 42 : 38));
           ctx.restore();
         }
 
         // Skip Prompt
-        ctx.font = 'bold 10px Outfit, sans-serif';
+        ctx.font = isMobile ? 'bold 13px Outfit, sans-serif' : 'bold 10px Outfit, sans-serif';
         ctx.fillStyle = '#92400e';
         ctx.textAlign = 'center';
-        ctx.fillText('Tap screen or press Space to continue', canvasWidth / 2, canvasHeight - 20);
+        ctx.fillText('Tap screen or press Space to continue', canvasWidth / 2, isMobile ? groundY - 18 : canvasHeight - 20);
 
         // Auto Finish Cutscene at 4.2s
         if (state.cutsceneTimer >= 4.2) {
