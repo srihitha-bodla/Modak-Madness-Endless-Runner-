@@ -238,9 +238,9 @@ export function GameCanvas({
     const groundY = isMobile ? 904 : 404;
 
     const p = gameStateRef.current.player;
-    p.width = isMobile ? 59 : 56; // Mobile +5% size adjustment (56 * 1.05 = ~59)
-    p.height = isMobile ? 59 : 56;
-    p.groundY = isMobile ? groundY - p.height : 350; // Ground aligned (904 - 59 = 845)
+    p.width = isMobile ? 71 : 67; // +20% size adjustment (59*1.2=71 mobile, 56*1.2=67 desktop)
+    p.height = isMobile ? 71 : 67;
+    p.groundY = isMobile ? groundY - p.height : 350; // Ground aligned (904 - 71 = 833)
     p.x = isMobile ? 80 : 100;
     if (p.isGrounded) p.y = p.groundY;
 
@@ -870,11 +870,11 @@ export function GameCanvas({
 
         const isOverhead = Math.random() < 0.35;
         
-        const obsHeight = isMobile ? 49 : 36; // Mobile -5% size adjustment (52 * 0.95 = 49.4 -> 49)
-        const obsWidth = isMobile ? 105 : 75; // Mobile -5% size adjustment (110 * 0.95 = 104.5 -> 105)
+        const obsHeight = isMobile ? 39 : 29; // -20% size reduction (49*0.8=39 mobile, 36*0.8=29 desktop)
+        const obsWidth = isMobile ? 84 : 60;  // -20% size reduction (105*0.8=84 mobile, 75*0.8=60 desktop)
         const obsY = isOverhead 
           ? (isMobile ? groundY - 145 : groundY - 102) 
-          : (isMobile ? groundY - obsHeight : groundY - 36);
+          : (isMobile ? groundY - obsHeight : groundY - obsHeight);
 
         state.obstacles.push({
           x: canvasWidth + 40,

@@ -4,6 +4,7 @@ import { Navbar } from './components/Navbar';
 import { DiyaDecoration } from './components/DiyaDecoration';
 import { LandingPage } from './pages/LandingPage';
 import { SubmissionPage } from './pages/SubmissionPage';
+import { HowToPlayScreen } from './components/HowToPlayScreen';
 import { GamePage } from './pages/GamePage';
 import { GameOverPage } from './pages/GameOverPage';
 import { LeaderboardPage } from './pages/LeaderboardPage';
@@ -28,12 +29,12 @@ export function App() {
     isMockMode
   } = useSupabaseData();
 
-  // 1. Submit Obstacle and launch Game
+  // 1. Submit Obstacle and launch How to Play guide
   const handleObstacleSubmitted = async ({ playerName: name, text, category }) => {
     setPlayerName(name);
     const created = await addObstacle(name, text, category);
     setPlayerObstacle(created);
-    setActivePage('game');
+    setActivePage('howtoplay');
     return created;
   };
 
@@ -86,6 +87,12 @@ export function App() {
         {activePage === 'submit' && (
           <SubmissionPage
             onSubmitObstacle={handleObstacleSubmitted}
+          />
+        )}
+
+        {activePage === 'howtoplay' && (
+          <HowToPlayScreen
+            onContinue={() => setActivePage('game')}
           />
         )}
 
